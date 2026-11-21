@@ -62,3 +62,7 @@ body.amb #amb{opacity:1}body.amb .stage{box-shadow:0 0 100px color-mix(in srgb,v
 .fab:before{content:"";position:absolute;inset:-6px;border-radius:50%;background:conic-gradient(#fff0,#fff,#fff0 35%,var(--c2),#fff0 70%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));animation:sp 3s linear infinite}
 .fab:after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--c1);animation:rp 2.4s ease-out infinite;pointer-events:none}
 @keyframes fl{50%{transform:translateY(-8px)}}@keyframes sp{to{transform:rotate(360deg)}}@keyframes rp{from{transform:scale(1);opacity:.8}to{transform:scale(1.9);opacity:0}}
+
+:root{--bl:8px}.card{backdrop-filter:none}#srch{backdrop-filter:none;background:rgba(14,10,40,.92)}
+#ov{backdrop-filter:none;background:rgba(8,6,26,.98)}
+body:has(#ov:not([hidden])) .fab,body:has(#ov:not([hidden])) #amb{animation:none;transition:none}
