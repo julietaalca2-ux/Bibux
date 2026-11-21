@@ -103,7 +103,7 @@ function bind(){const v=$('#view');
  const q=$('#q');if(q)q.oninput=()=>{V.q=q.value;$('#rg').innerHTML=filt().map(card).join('')};
  const so=$('#so');if(so){so.value=V.s||'Tendencias';so.onchange=()=>{V.s=so.value;render()}}
  async function vsearch(){const q=($('#vq').value||'').trim();if(!q)return;V.vq=q;V.vres=null;render();let err='';try{const j=await yt('search',{part:'snippet',type:'video',maxResults:12,videoEmbeddable:'true',q});V.vres=j.items.map(i=>({id:i.id.videoId,t:dec(i.snippet.title),c:dec(i.snippet.channelTitle)}))}catch(e){V.vres=[];err=e.message}render();if(err)toast('Error de YouTube: '+err.slice(0,120))}
- const vs=$('#vs');if(vs){vs.onclick=vsearch;$('#vq').onkeydown=e=>e.key=='Enter'&&vsearch()}
+ const vs=$('#vs');if(vs){vs.onclick=vsearch;$('#vq').onkeydown=e=>{if(e.key=='Enter')vsearch()}}
  document.querySelectorAll('[data-w]').forEach(e=>e.onclick=()=>{const x=(V.vres||[]).concat(L('favs',[]),V.likes||[]).find(v=>v.id==e.dataset.w),code=Math.random().toString(36).slice(2,8).toUpperCase();rooms.unshift({code,name:x.t.slice(0,40),cat:'Música',priv:0,cover:1+rooms.length%6,host:me.name,viewers:1,queue:[]});S('rooms',rooms);PENDING=x.id;location.hash='#/watch/'+code});
  const on=(i,f)=>{const e=$(i);if(e)e.onclick=f};
  document.querySelectorAll('[data-f]').forEach(e=>e.onclick=()=>{let f=L('favs',[]);const id=e.dataset.f;f=f.some(x=>x.id==id)?f.filter(x=>x.id!=id):[...f,(V.vres||[]).find(x=>x.id==id)];S('favs',f);render()});
@@ -148,7 +148,7 @@ function bind(){const v=$('#view');
  document.querySelectorAll('.rb').forEach(b=>b.onclick=()=>{fly(b.textContent);r.sync.send({k:'react',e:b.textContent})});
  document.querySelectorAll('.tabsr button').forEach(b=>b.onclick=()=>{r.tab=b.dataset.t;pane()});
  const send=()=>{const t=$('#ci').value.trim();if(!t)return;const m={u:me.name,a:me.av,t};r.chat.push(m);const st=L('stats',{});st.msgs=(st.msgs||0)+1;S('stats',st);S('chat-'+r.r.code,r.chat.slice(-100));r.sync.send({k:'chat',m});$('#ci').value='';pane()};
- on('#cs',send);$('#ci').onkeydown=e=>e.key=='Enter'&&send();
+ on('#cs',send);$('#ci').onkeydown=e=>{if(e.key=='Enter')send()};
  $('#pane').onclick=e=>{const b=e.target.closest('[data-p],[data-add],[data-go]');if(!b)return;if(b.dataset.p)play(b.dataset.p);else if(b.dataset.add)addQ(b.dataset.add);else doSearch($('#sq').value)};
  $('#pane').onkeydown=e=>{if(e.key=='Enter'&&e.target.id=='sq')doSearch(e.target.value)};pane()}
 function fly(e){const s=$('#dock');if(!s)return;const x=document.createElement('span');x.className='rx';x.textContent=e;x.style.left=(10+Math.random()*80)+'%';s.appendChild(x);setTimeout(()=>x.remove(),2400)}
@@ -157,7 +157,7 @@ function render(){cleanup();const h=location.hash.replace('#/','').split('/'),r=
  $('#side').innerHTML=`<div class="logo"><img src="assets/icons/logo.svg" alt="">Bibux</div>`+nav(r,NAV);$('#tabs').innerHTML=nav(r,NAV.filter(n=>MOB.includes(n[0])));
  $('#view').innerHTML=r=='watch'?watch(h[1]||'new'):(V[r]||V.home)();{const v=$('#view');if(V.dir){v.classList.remove('sl','sr');void v.offsetWidth;v.classList.add(V.dir=='l'?'sl':'sr');V.dir=null}}bind();setBg(room?L('bg-'+room.r.code,0):cfg.wp||0);window.scrollTo(0,0)}
 addEventListener('hashchange',()=>{V.q='';V.c='';render()});apply();render();S('recent',L('recent',[]).filter(c=>!/^DEMO/.test(c)));
-$('#srch').onclick=ovOpen;$('#ovx').onclick=()=>$('#ov').hidden=true;$('#ovg').onclick=ovSearch;$('#ovq').onkeydown=e=>e.key=='Enter'&&ovSearch();
+$('#srch').onclick=ovOpen;$('#ovx').onclick=()=>$('#ov').hidden=true;$('#ovg').onclick=ovSearch;$('#ovq').onkeydown=e=>{if(e.key=='Enter')ovSearch()};
 $('#ovr').onclick=e=>{const b=e.target.closest('[data-op],[data-oq]');if(!b)return;if(b.dataset.op){play(b.dataset.op);$('#ov').hidden=true;toast('Reproduciendo')}else addQ(b.dataset.oq)};
 let tx=0,ty=0,tk=0;
 addEventListener('touchstart',e=>{const t=e.touches[0];tx=t.clientX;ty=t.clientY;tk=e.target.closest('.rail,input,textarea,select,#dock,.panel.side,#ov,.stage,.chip')?1:0},{passive:true});
