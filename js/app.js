@@ -8,7 +8,14 @@ let rooms=L('rooms',[]);
 // Datos de ejemplo (marcados como tal en la interfaz): sirven para ver el diseño sin backend.
 const SAMPLE=[],FRIENDS=[],NOTIFS=[];
 const filt=()=>{const q=(V.q||'').toLowerCase(),c=V.c||'';return allRooms().filter(r=>!r.priv&&(!c||r.cat==c)&&r.name.toLowerCase().includes(q)).sort((a,b)=>V.s=='Nombre'?a.name.localeCompare(b.name):(b.viewers||0)-(a.viewers||0))};
-const allRooms=()=>[...rooms,...SAMPLE];
+const BDB=window.BibuxDB||{client:null,ok:false,ready:Promise.resolve(false)};
+let REMOTE={},NF={},RT=0;
+const RM=r=>({code:r.code,name:r.name,cat:r.cat,priv:r.priv?1:0,cover:r.cover||1,host:r.host_name,viewers:1,queue:[]});
+const allRooms=()=>[...rooms,...Object.values(REMOTE).filter(x=>!rooms.some(m=>m.code===x.code)),...SAMPLE];
+function dbRoom(r){if(!BDB.client||!r)return;BDB.ready.then(ok=>{if(!ok)throw new Error(BDB.err||'sin sesión');return BDB.createRoom(r)}).catch(e=>toast('No se pudo guardar la sala en línea: '+String(e.message||e).slice(0,90)))}
+function saveProf(){if(!BDB.client||!BDB.ok)return;BDB.saveProfile(me).catch(()=>{})}
+function refreshRemote(){if(!BDB.client||Date.now()-RT<8000)return;RT=Date.now();BDB.ready.then(ok=>ok&&BDB.listPublic()).then(l=>{if(!l)return;let ch=0;l.forEach(x=>{if(!REMOTE[x.code]){REMOTE[x.code]=RM(x);ch=1}});const a=document.activeElement;if(ch&&(location.hash.replace('#/','').split('/')[0]||'home')=='explore'&&!(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)))render()}).catch(()=>{})}
+function invite(){const u=location.href,n=room?room.r.name:'Bibux';if(navigator.share)navigator.share({title:'Bibux',text:'Entra a mi sala "'+n+'" en Bibux',url:u}).catch(e=>{if(!e||e.name!='AbortError')copy(u)});else copy(u)}
 const getRoom=c=>allRooms().find(r=>r.code===c);
 const toast=t=>{const st=$('#st');if(st)st.textContent=t;const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('on'),2200)};
 const ytId=u=>(u.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([\w-]{11})/)||[])[1]||(/^[\w-]{11}$/.test(u.trim())?u.trim():null);
@@ -104,19 +111,19 @@ function bind(){const v=$('#view');
  const so=$('#so');if(so){so.value=V.s||'Tendencias';so.onchange=()=>{V.s=so.value;render()}}
  async function vsearch(){const q=($('#vq').value||'').trim();if(!q)return;V.vq=q;V.vres=null;render();let err='';try{const j=await yt('search',{part:'snippet',type:'video',maxResults:12,videoEmbeddable:'true',q});V.vres=j.items.map(i=>({id:i.id.videoId,t:dec(i.snippet.title),c:dec(i.snippet.channelTitle)}))}catch(e){V.vres=[];err=e.message}render();if(err)toast('Error de YouTube: '+err.slice(0,120))}
  const vs=$('#vs');if(vs){vs.onclick=vsearch;$('#vq').onkeydown=e=>{if(e.key=='Enter')vsearch()}}
- document.querySelectorAll('[data-w]').forEach(e=>e.onclick=()=>{const x=(V.vres||[]).concat(L('favs',[]),V.likes||[]).find(v=>v.id==e.dataset.w),code=Math.random().toString(36).slice(2,8).toUpperCase();rooms.unshift({code,name:x.t.slice(0,40),cat:'Música',priv:0,cover:1+rooms.length%6,host:me.name,viewers:1,queue:[]});S('rooms',rooms);PENDING=x.id;location.hash='#/watch/'+code});
+ document.querySelectorAll('[data-w]').forEach(e=>e.onclick=()=>{const x=(V.vres||[]).concat(L('favs',[]),V.likes||[]).find(v=>v.id==e.dataset.w),code=Math.random().toString(36).slice(2,8).toUpperCase();rooms.unshift({code,name:x.t.slice(0,40),cat:'Música',priv:0,cover:1+rooms.length%6,host:me.name,viewers:1,queue:[]});S('rooms',rooms);dbRoom(rooms[0]);PENDING=x.id;location.hash='#/watch/'+code});
  const on=(i,f)=>{const e=$(i);if(e)e.onclick=f};
  document.querySelectorAll('[data-f]').forEach(e=>e.onclick=()=>{let f=L('favs',[]);const id=e.dataset.f;f=f.some(x=>x.id==id)?f.filter(x=>x.id!=id):[...f,(V.vres||[]).find(x=>x.id==id)];S('favs',f);render()});
  
- on('#mk',()=>{const n=$('#rn').value.trim()||'Mi sala';const code=Math.random().toString(36).slice(2,8).toUpperCase();rooms.unshift({code,name:n,cat:$('#rc').value,priv:+$('#rp').value,cover:1+rooms.length%6,host:me.name,viewers:1,queue:[]});S('rooms',rooms);location.hash='#/watch/'+code});
- on('#jn',()=>{const c=$('#jc').value.trim().toUpperCase();if(getRoom(c))location.hash='#/watch/'+c;else toast('Código no encontrado en este dispositivo')});
+ on('#mk',()=>{const n=$('#rn').value.trim()||'Mi sala';const code=Math.random().toString(36).slice(2,8).toUpperCase();rooms.unshift({code,name:n,cat:$('#rc').value,priv:+$('#rp').value,cover:1+rooms.length%6,host:me.name,viewers:1,queue:[]});S('rooms',rooms);dbRoom(rooms[0]);location.hash='#/watch/'+code});
+ on('#jn',()=>{const c=$('#jc').value.trim().toUpperCase(),m=c.match(/WATCH\/([A-Z0-9]+)/),k=m?m[1]:c;if(k)location.hash='#/watch/'+k});
  on('#inv',()=>copy(location.href.split('#')[0]));
  on('#ps',()=>{me.name=$('#pn').value.trim()||me.name;me.bio=$('#pb').value;S('me',me);toast('Perfil guardado')});
  document.querySelectorAll('[data-a]').forEach(e=>e.onclick=()=>{me.av=+e.dataset.a;me.avc='';S('me',me);render()});
  document.querySelectorAll('[data-b]').forEach(e=>e.onclick=()=>{me.banner=+e.dataset.b;S('me',me);render()});
  document.querySelectorAll('[data-g]').forEach(e=>e.onclick=()=>{cfg.wp=+e.dataset.g;S('cfg',cfg);render()});
  document.querySelectorAll('[data-fc]').forEach(e=>e.onclick=()=>{const c=e.dataset.fc;me.fav=me.fav.includes(c)?me.fav.filter(x=>x!=c):[...me.fav,c];S('me',me);render()});
- on('#ps',()=>{me.name=$('#pn').value.trim()||me.name;me.bio=$('#pb').value;me.link=$('#pl').value.trim();me.mood=$('#pm').value;me.status=$('#pst').value;me.inv=$('#pi').value;me.act=$('#pa').checked;S('me',me);render();toast('Perfil guardado')});
+ on('#ps',()=>{me.name=$('#pn').value.trim()||me.name;me.bio=$('#pb').value;me.link=$('#pl').value.trim();me.mood=$('#pm').value;me.status=$('#pst').value;me.inv=$('#pi').value;me.act=$('#pa').checked;S('me',me);saveProf();render();toast('Perfil guardado')});
  on('#pq',()=>{me.avc='';S('me',me);render()});
  const pf=$('#pf');if(pf)pf.onchange=()=>{const f=pf.files[0];if(!f)return;const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=256;const m=Math.min(im.width,im.height);c.getContext('2d').drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,256,256);me.avc=c.toDataURL('image/jpeg',.85);S('me',me);render();toast('Foto actualizada')};im.src=URL.createObjectURL(f)};
  on('#pe',()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(me)],{type:'application/json'}));a.download='bibux-perfil.json';a.click()});
@@ -138,7 +145,7 @@ function bind(){const v=$('#view');
  on('#yl',()=>{const id=ytId($('#yu').value);id?play(id):toast('Enlace de YouTube no válido')});
  on('#yq',()=>{const id=ytId($('#yu').value);if(!id)return toast('Enlace de YouTube no válido');addQ(id)});
  on('#fs',()=>{const s=$('#dock');(s.requestFullscreen||s.webkitRequestFullscreen||(()=>toast('Pantalla completa no disponible')))?.call(s)});
- const fb=$('#iv');if(fb){let sx,sy,ox,oy,mv=0;fb.onpointerdown=e=>{sx=e.clientX;sy=e.clientY;const r=fb.getBoundingClientRect();ox=r.left;oy=r.top;mv=0;fb.setPointerCapture(e.pointerId)};fb.onpointermove=e=>{if(!fb.hasPointerCapture(e.pointerId))return;const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.abs(dx)+Math.abs(dy)>8)mv=1;if(mv){fb.style.left=Math.min(innerWidth-64,Math.max(4,ox+dx))+'px';fb.style.top=Math.min(innerHeight-64,Math.max(4,oy+dy))+'px';fb.style.right='auto';fb.style.bottom='auto'}};fb.onpointerup=()=>{if(!mv)copy(location.href)}}
+ const fb=$('#iv');if(fb){let sx,sy,ox,oy,mv=0;fb.onpointerdown=e=>{sx=e.clientX;sy=e.clientY;const r=fb.getBoundingClientRect();ox=r.left;oy=r.top;mv=0;fb.setPointerCapture(e.pointerId)};fb.onpointermove=e=>{if(!fb.hasPointerCapture(e.pointerId))return;const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.abs(dx)+Math.abs(dy)>8)mv=1;if(mv){fb.style.left=Math.min(innerWidth-64,Math.max(4,ox+dx))+'px';fb.style.top=Math.min(innerHeight-64,Math.max(4,oy+dy))+'px';fb.style.right='auto';fb.style.bottom='auto'}};fb.onpointerup=()=>{if(!mv)invite()}}
  on('#bgb',()=>{const w=$('#wpr');w.style.display=w.style.display=='none'?'flex':'none'});
  document.querySelectorAll('[data-bg]').forEach(e=>e.onclick=()=>{S('bg-'+r.r.code,+e.dataset.bg);setBg(+e.dataset.bg)});
  on('#cn',()=>document.querySelector('.wt').classList.toggle('cine'));
@@ -155,8 +162,9 @@ function fly(e){const s=$('#dock');if(!s)return;const x=document.createElement('
 function copy(t){(navigator.clipboard?.writeText(t)||Promise.reject()).then(()=>toast('Enlace copiado'),()=>prompt('Copia el enlace:',t))}
 function render(){cleanup();const h=location.hash.replace('#/','').split('/'),r=h[0]||'home';
  $('#side').innerHTML=`<div class="logo"><img src="assets/icons/logo.svg" alt="">Bibux</div>`+nav(r,NAV);$('#tabs').innerHTML=nav(r,NAV.filter(n=>MOB.includes(n[0])));
- $('#view').innerHTML=r=='watch'?watch(h[1]||'new'):(V[r]||V.home)();{const v=$('#view');if(V.dir){v.classList.remove('sl','sr');void v.offsetWidth;v.classList.add(V.dir=='l'?'sl':'sr');V.dir=null}}bind();setBg(room?L('bg-'+room.r.code,0):cfg.wp||0);window.scrollTo(0,0)}
-addEventListener('hashchange',()=>{V.q='';V.c='';render()});apply();render();S('recent',L('recent',[]).filter(c=>!/^DEMO/.test(c)));
+ const wc=h[1];if(r=='watch'&&wc&&wc!='new'&&!getRoom(wc)&&BDB.client&&!NF[wc]){NF[wc]=1;$('#view').innerHTML='<h1>Buscando sala…</h1><p class="sub">Un momento.</p>';setBg(0);BDB.ready.then(ok=>ok?BDB.getRoom(wc):null).then(x=>{if(x)REMOTE[x.code]=RM(x)}).catch(()=>{}).then(()=>{if(location.hash.replace('#/','').split('/')[1]==wc)render();delete NF[wc]});return}
+ $('#view').innerHTML=r=='watch'?watch(h[1]||'new'):(V[r]||V.home)();{const v=$('#view');if(V.dir){v.classList.remove('sl','sr');void v.offsetWidth;v.classList.add(V.dir=='l'?'sl':'sr');V.dir=null}}bind();setBg(room?L('bg-'+room.r.code,0):cfg.wp||0);window.scrollTo(0,0);if(r=='explore')refreshRemote()}
+addEventListener('hashchange',()=>{V.q='';V.c='';render()});apply();render();S('recent',L('recent',[]).filter(c=>!/^DEMO/.test(c)));BDB.ready.then(ok=>{if(BDB.client&&!ok)toast('Sin conexión en línea: '+String(BDB.err).slice(0,80));else if(ok)saveProf()});
 $('#srch').onclick=ovOpen;$('#ovx').onclick=()=>$('#ov').hidden=true;$('#ovg').onclick=ovSearch;$('#ovq').onkeydown=e=>{if(e.key=='Enter')ovSearch()};
 $('#ovr').onclick=e=>{const b=e.target.closest('[data-op],[data-oq]');if(!b)return;if(b.dataset.op){play(b.dataset.op);$('#ov').hidden=true;toast('Reproduciendo')}else addQ(b.dataset.oq)};
 let tx=0,ty=0,tk=0;
