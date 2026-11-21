@@ -66,3 +66,9 @@ body.amb #amb{opacity:1}body.amb .stage{box-shadow:0 0 100px color-mix(in srgb,v
 :root{--bl:8px}.card{backdrop-filter:none}#srch{backdrop-filter:none;background:rgba(14,10,40,.92)}
 #ov{backdrop-filter:none;background:rgba(8,6,26,.98)}
 body:has(#ov:not([hidden])) .fab,body:has(#ov:not([hidden])) #amb{animation:none;transition:none}
+body:has(#ov:not([hidden])) .fab,
+body:has(#ov:not([hidden])) .fab:before,
+body:has(#ov:not([hidden])) .fab:after{animation:none!important;display:none}
+body:has(#ov:not([hidden])) #amb{display:none}
+:root:has(#ov:not([hidden])){transition:none}
+
