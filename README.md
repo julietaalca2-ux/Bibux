@@ -13,4 +13,4 @@ Editor de perfil completo (foto propia, 24 avatares, portadas, estado, gustos, p
 ## Qué funciona hoy
 YouTube real (reproductor oficial), cola, chat y sincronización entre pestañas del mismo navegador, salas/códigos guardados en el dispositivo, micrófono (permiso real), pantalla completa, perfil y ajustes.
 ## Qué requiere backend (preparado en js/config.js, js/sync.js, js/rtc.js)
-Salas y chat entre dispositivos distintos (Supabase Realtime), amigos/mensajes reales, voz WebRTC. Las listas de amigos, notificaciones y salas "ejemplo" son datos de muestra.
+Salas y chat entre dispositivos distintos (Supabase Realtime), amigos/mensajes reales, voz WebRTC.
