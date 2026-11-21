@@ -1,0 +1,2 @@
+// Voz: pide el micrófono real. La señalización WebRTC entre personas (offer/answer/ICE) se conecta en createPeer vía Supabase.
+window.BibuxRTC={stream:null,async toggleMic(){if(this.stream){this.stream.getTracks().forEach(t=>t.stop());this.stream=null;return false}this.stream=await navigator.mediaDevices.getUserMedia({audio:true});return true},createPeer(){return new RTCPeerConnection({iceServers:BIBUX_CONFIG.ICE_SERVERS})}};
