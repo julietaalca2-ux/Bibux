@@ -20,6 +20,13 @@ const card=r=>`<a class="rc" href="#/watch/${r.code}" style="background-image:ur
 const rail=a=>`<div class="rail">${a.map(card).join('')||'<p class="sub">Aún no hay salas.</p>'}</div>`;
 const apply=()=>{document.documentElement.style.setProperty('--h',cfg.hue);document.body.classList.toggle('noblur',!cfg.blur);document.body.classList.toggle('nored',!cfg.motion)};
 let room=null;
+const KEY=BIBUX_CONFIG.YT_API_KEY;let META=L('meta',{});
+const dec=s=>{const t=document.createElement('textarea');t.innerHTML=s;return t.value};
+async function yt(path,params){const u=new URL('https://www.googleapis.com/youtube/v3/'+path);Object.entries({...params,key:KEY}).forEach(([k,v])=>u.searchParams.set(k,v));const r=await fetch(u),j=await r.json();if(!r.ok)throw new Error(j.error?.message||'Error de YouTube');return j}
+async function metaFor(ids){const need=ids.filter(i=>!META[i]);if(!need.length)return;try{const j=await yt('videos',{part:'snippet',id:need.join(',')});j.items.forEach(v=>META[v.id]={t:v.snippet.title,c:v.snippet.channelTitle});S('meta',META);pane()}catch{}}
+async function doSearch(q){if(!q.trim())return;room.sq=q;room.res=null;pane();try{const j=await yt('search',{part:'snippet',type:'video',maxResults:12,videoEmbeddable:'true',q});room.res=j.items.map(i=>({id:i.id.videoId,t:dec(i.snippet.title),c:dec(i.snippet.channelTitle)}));room.res.forEach(x=>META[x.id]={t:x.t,c:x.c});S('meta',META)}catch(e){room.res=[];toast(e.message.slice(0,90))}pane()}
+const vrow=(id,extra)=>`<div class="li"><img src="https://i.ytimg.com/vi/${id}/mqdefault.jpg" alt="" style="width:96px;border-radius:10px"><div><b>${esc((META[id]||{}).t||id)}</b><br><small class="sub">${esc((META[id]||{}).c||'')}</small></div>${extra}</div>`;
+function addQ(id){room.queue.push(id);room.sync.send({k:'queue',q:room.queue});S('q-'+room.r.code,room.queue);toast('Añadido a la cola');pane()}
 function cleanup(){if(room){room.sync&&room.sync.close();room=null}}
 const V={
 home:()=>{const rec=L('recent',[]).map(getRoom).filter(Boolean);return`<section class="hero"><h1>Mira juntos.<br>Sin distancias.</h1><p class="sub">Salas con YouTube, chat y reacciones en un solo lugar.</p><div class="row"><a class="btn pri" href="#/rooms">Crear sala</a><a class="btn" href="#/watch/new">Pegar un enlace</a><a class="btn" href="#/explore">Explorar</a></div></section>
@@ -44,12 +51,13 @@ function watch(code){
  return`<div class="wt"><div><div class="stage" id="stage"><div id="yt"><div class="empty"><div><h2>${esc(r.name)}</h2><p>Pega un enlace de YouTube abajo para empezar.</p></div></div></div></div>
 <div class="row"><input id="yu" placeholder="Enlace de YouTube" style="flex:1"><button class="pri" id="yl">Reproducir</button><button id="yq">A la cola</button></div>
 <div class="row"><button id="mic">🎙 Micrófono</button><button id="fs">⛶ Pantalla completa</button><button id="iv">Invitar</button>${['🔥','😂','❤️','👏','😮'].map(e=>`<button class="rb">${e}</button>`).join('')}</div><p class="sub" style="margin-top:10px">Código: <b>${r.code}</b> · Anfitrión: ${esc(r.host||'—')} · Sincronización activa entre pestañas de este navegador; entre dispositivos requiere Supabase.</p></div>
-<div class="panel side"><div class="tabsr"><button data-t="chat" class="on">Chat</button><button data-t="ppl">Personas</button><button data-t="q">Cola</button></div><div class="pane" id="pane"></div><div class="cb" id="cb"><input id="ci" placeholder="Escribe un mensaje"><button class="pri" id="cs">Enviar</button></div></div></div>`}
+<div class="panel side"><div class="tabsr"><button data-t="chat" class="on">Chat</button><button data-t="ppl">Personas</button><button data-t="s">Buscar</button><button data-t="q">Cola</button></div><div class="pane" id="pane"></div><div class="cb" id="cb"><input id="ci" placeholder="Escribe un mensaje"><button class="pri" id="cs">Enviar</button></div></div></div>`}
 function pane(){if(!room)return;const p=$('#pane');if(!p)return;$('#cb').style.display=room.tab=='chat'?'flex':'none';
  document.querySelectorAll('.tabsr button').forEach(b=>b.classList.toggle('on',b.dataset.t==room.tab));
  if(room.tab=='chat'){p.innerHTML=room.chat.map(m=>`<div class="msg ${m.u==me.name?'me':''}"><img class="av s" src="assets/avatars/av${m.a}.png"><div class="bub"><small class="sub">${esc(m.u)}</small><br>${esc(m.t)}</div></div>`).join('')||'<p class="sub">Nadie ha escrito todavía.</p>';p.scrollTop=1e9}
  else if(room.tab=='ppl')p.innerHTML=Object.entries(room.peers).map(([n,a])=>`<div class="li"><img class="av" src="assets/avatars/av${a}.png"><div><b>${esc(n)}</b>${n==room.r.host?' · anfitrión':''}</div><span class="dot on"></span></div>`).join('');
- else p.innerHTML=room.queue.map((id,i)=>`<div class="li"><div>${id}</div><button data-p="${id}">▶</button></div>`).join('')||'<p class="sub">La cola está vacía.</p>'}
+ else if(room.tab=='s'){const f=p.querySelector('#sq')===document.activeElement;p.innerHTML=`<div class="row" style="margin:0"><input id="sq" placeholder="Buscar en YouTube" value="${esc(room.sq||'')}" style="flex:1"><button class="pri" data-go="1">Buscar</button></div>`+(room.res===null?'<p class="sub">Buscando…</p>':(room.res||[]).map(x=>vrow(x.id,`<button data-p="${x.id}">▶</button><button data-add="${x.id}">＋</button>`)).join(''))}
+ else{p.innerHTML=room.queue.map(id=>vrow(id,`<button data-p="${id}">▶</button>`)).join('')||'<p class="sub">La cola está vacía. Usa Buscar para añadir videos.</p>';metaFor(room.queue)}}
 function loadYT(cb){if(window.YT&&YT.Player)return cb();const s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';document.head.appendChild(s);window.onYouTubeIframeAPIReady=cb}
 function play(id,emit=true){if(!room)return;loadYT(()=>{if(!room)return;const mk=()=>{room.cur=new YT.Player('yt',{videoId:id,playerVars:{rel:0,playsinline:1,autoplay:1},events:{onStateChange:e=>{if(room.lock)return;const t=room.cur.getCurrentTime();if(e.data==1)room.sync.send({k:'play',t});if(e.data==2)room.sync.send({k:'pause',t})}}})};
  if(room.cur&&room.cur.loadVideoById)room.cur.loadVideoById(id);else mk()});if(emit)room.sync.send({k:'load',id})}
@@ -67,10 +75,10 @@ function bind(){const v=$('#view');
  on('#dms',()=>{const t=$('#dmi').value.trim();if(!t)return;const m=L('dm',{}),k=V.k??0;(m[k]=m[k]||[]).push(t);S('dm',m);render()});
  const sh=$('#sh');if(sh){sh.oninput=()=>{cfg.hue=+sh.value;S('cfg',cfg);apply()};$('#sb').onchange=e=>{cfg.blur=e.target.checked;S('cfg',cfg);apply()};$('#sm').onchange=e=>{cfg.motion=e.target.checked;S('cfg',cfg);apply()};$('#sx').onclick=()=>{localStorage.clear();location.reload()}}
  if(!room)return;const r=room;
- r.sync=BibuxSync.open(r.r.code,m=>{if(m.k=='chat'){r.chat.push(m.m);pane()}else if(m.k=='load')play(m.id,false);else if(m.k=='play'||m.k=='pause'){if(r.cur&&r.cur.seekTo){r.lock=1;r.cur.seekTo(m.t,true);m.k=='play'?r.cur.playVideo():r.cur.pauseVideo();setTimeout(()=>r.lock=0,800)}}else if(m.k=='queue'){r.queue=m.q;pane()}else if(m.k=='react')fly(m.e);else if(m.k=='hi'){r.peers[m.u]=m.a;r.sync.send({k:'hello',u:me.name,a:me.av});pane()}else if(m.k=='hello'){r.peers[m.u]=m.a;pane()}});
+ r.sync=BibuxSync.open(r.r.code,m=>{if(m.k=='chat'){r.chat.push(m.m);if(r.tab=='chat')pane()}else if(m.k=='load')play(m.id,false);else if(m.k=='play'||m.k=='pause'){if(r.cur&&r.cur.seekTo){r.lock=1;r.cur.seekTo(m.t,true);m.k=='play'?r.cur.playVideo():r.cur.pauseVideo();setTimeout(()=>r.lock=0,800)}}else if(m.k=='queue'){r.queue=m.q;pane()}else if(m.k=='react')fly(m.e);else if(m.k=='hi'){r.peers[m.u]=m.a;r.sync.send({k:'hello',u:me.name,a:me.av});pane()}else if(m.k=='hello'){r.peers[m.u]=m.a;pane()}});
  r.sync.send({k:'hi',u:me.name,a:me.av});
  on('#yl',()=>{const id=ytId($('#yu').value);id?play(id):toast('Enlace de YouTube no válido')});
- on('#yq',()=>{const id=ytId($('#yu').value);if(!id)return toast('Enlace de YouTube no válido');r.queue.push(id);r.sync.send({k:'queue',q:r.queue});S('q-'+r.r.code,r.queue);pane();toast('Añadido a la cola')});
+ on('#yq',()=>{const id=ytId($('#yu').value);if(!id)return toast('Enlace de YouTube no válido');addQ(id)});
  on('#fs',()=>{const s=$('#stage');(s.requestFullscreen||s.webkitRequestFullscreen||(()=>toast('Pantalla completa no disponible')))?.call(s)});
  on('#iv',()=>copy(location.href));
  on('#mic',async()=>{try{toast(await BibuxRTC.toggleMic()?'Micrófono activado':'Micrófono apagado')}catch{toast('Permiso de micrófono denegado')}});
@@ -78,7 +86,8 @@ function bind(){const v=$('#view');
  document.querySelectorAll('.tabsr button').forEach(b=>b.onclick=()=>{r.tab=b.dataset.t;pane()});
  const send=()=>{const t=$('#ci').value.trim();if(!t)return;const m={u:me.name,a:me.av,t};r.chat.push(m);S('chat-'+r.r.code,r.chat.slice(-100));r.sync.send({k:'chat',m});$('#ci').value='';pane()};
  on('#cs',send);$('#ci').onkeydown=e=>e.key=='Enter'&&send();
- $('#pane').onclick=e=>{const p=e.target.dataset?.p;if(p)play(p)};pane()}
+ $('#pane').onclick=e=>{const b=e.target.closest('[data-p],[data-add],[data-go]');if(!b)return;if(b.dataset.p)play(b.dataset.p);else if(b.dataset.add)addQ(b.dataset.add);else doSearch($('#sq').value)};
+ $('#pane').onkeydown=e=>{if(e.key=='Enter'&&e.target.id=='sq')doSearch(e.target.value)};pane()}
 function fly(e){const s=$('#stage');if(!s)return;const x=document.createElement('span');x.className='rx';x.textContent=e;x.style.left=(10+Math.random()*80)+'%';s.appendChild(x);setTimeout(()=>x.remove(),2400)}
 function copy(t){(navigator.clipboard?.writeText(t)||Promise.reject()).then(()=>toast('Enlace copiado'),()=>prompt('Copia el enlace:',t))}
 function render(){cleanup();const h=location.hash.replace('#/','').split('/'),r=h[0]||'home';
