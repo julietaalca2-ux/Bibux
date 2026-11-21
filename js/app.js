@@ -7,6 +7,7 @@ let cfg=L('cfg',{hue:262,blur:true,motion:true});
 let rooms=L('rooms',[]);
 // Datos de ejemplo (marcados como tal en la interfaz): sirven para ver el diseño sin backend.
 const SAMPLE=[],FRIENDS=[],NOTIFS=[];
+const filt=()=>{const q=(V.q||'').toLowerCase(),c=V.c||'';return allRooms().filter(r=>!r.priv&&(!c||r.cat==c)&&r.name.toLowerCase().includes(q)).sort((a,b)=>V.s=='Nombre'?a.name.localeCompare(b.name):(b.viewers||0)-(a.viewers||0))};
 const allRooms=()=>[...rooms,...SAMPLE];
 const getRoom=c=>allRooms().find(r=>r.code===c);
 const toast=t=>{const st=$('#st');if(st)st.textContent=t;const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('on'),2200)};
@@ -36,7 +37,7 @@ home:()=>{const rec=L('recent',[]).map(getRoom).filter(Boolean);return`<section 
 <h2>Amigos</h2><div class="panel"><p class="sub">Aún no tienes amigos en Bibux. Invita a alguien con el enlace.</p><div class="row"><button class="pri" id="inv">Copiar enlace de Bibux</button></div></div>`},
 explore:()=>{const q=(V.q||'').toLowerCase(),c=V.c||'';const l=allRooms().filter(r=>!r.priv&&(!c||r.cat==c)&&r.name.toLowerCase().includes(q));
 const vr=V.vres===null?'<p class="sub">Buscando…</p>':V.vres&&V.vres.length?`<h2>Videos de YouTube</h2><div class="grid">${V.vres.map(x=>`<div class="card"><img src="https://i.ytimg.com/vi/${x.id}/hqdefault.jpg" alt="" style="width:100%;border-radius:12px;aspect-ratio:16/9;object-fit:cover"><p style="margin:8px 0"><b>${esc(x.t)}</b></p><small class="sub">${esc(x.c)}</small><div class="row"><button class="pri" data-w="${x.id}">Ver juntos</button><button data-f="${x.id}">${isFav(x.id)?'♥':'♡'}</button></div></div>`).join('')}</div>`:V.vres?'<p class="sub">Sin resultados.</p>':'';
-return`<h1>Explorar</h1><div class="row"><input id="vq" placeholder="Buscar videos o música en YouTube" value="${esc(V.vq||'')}" style="flex:1"><button class="pri" id="vs">Buscar</button></div><p id="st" style="color:#7dd3fc"></p>${vr}<h2>Salas</h2><div class="row"><input id="q" placeholder="Buscar salas" value="${esc(V.q||'')}" style="flex:1"><select id="so"><option>Tendencias</option><option>Nombre</option></select></div><div class="row">${['',...CATS].map(x=>`<span class="chip ${c==x?'on':''}" data-c="${x}">${x||'Todas'}</span>`).join('')}</div><h2>${l.length} salas públicas</h2>${l.length?'':'<p class="sub">Aún no hay salas públicas. Crea una en Salas.</p>'}<div class="grid">${l.sort((a,b)=>V.s=='Nombre'?a.name.localeCompare(b.name):(b.viewers||0)-(a.viewers||0)).map(card).join('')}</div>`},
+return`<h1>Explorar</h1><div class="row"><input id="vq" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Buscar videos o música en YouTube" value="${esc(V.vq||'')}" style="flex:1"><button class="pri" id="vs">Buscar</button></div><p id="st" style="color:#7dd3fc"></p>${vr}<h2>Salas</h2><div class="row"><input id="q" placeholder="Buscar salas" value="${esc(V.q||'')}" style="flex:1"><select id="so"><option>Tendencias</option><option>Nombre</option></select></div><div class="row">${['',...CATS].map(x=>`<span class="chip ${c==x?'on':''}" data-c="${x}">${x||'Todas'}</span>`).join('')}</div><h2>${l.length} salas públicas</h2>${l.length?'':'<p class="sub">Aún no hay salas públicas. Crea una en Salas.</p>'}<div class="grid" id="rg">${filt().map(card).join('')}</div>`},
 rooms:()=>`<h1>Salas</h1><div class="panel" style="margin-top:14px"><div class="row" style="margin:0"><input id="rn" placeholder="Nombre de la sala" style="flex:1"><select id="rc">${CATS.map(c=>`<option>${c}</option>`).join('')}</select><select id="rp"><option value="0">Pública</option><option value="1">Privada</option></select><button class="pri" id="mk">Crear sala</button></div></div>
 <div class="panel" style="margin-top:14px"><div class="row" style="margin:0"><input id="jc" placeholder="Código de invitación" style="flex:1"><button id="jn">Unirme</button></div></div><h2>Mis salas</h2><div class="grid">${rooms.map(card).join('')||'<p class="sub">Crea tu primera sala y comparte el código.</p>'}</div>`,
 friends:()=>`<h1>Amigos</h1><div class="panel" style="margin-top:14px"><p class="sub">Aún no tienes amigos en Bibux. Podrás agregarlos al conectar Supabase; mientras tanto invita con el enlace.</p><div class="row"><button class="pri" id="inv">Copiar enlace de Bibux</button></div></div>`,
@@ -93,13 +94,13 @@ const QN={hd2160:'4K',hd1440:'1440p',hd1080:'1080p',hd720:'720p',large:'480p',me
 function fillQ(){const ql=$('#ql');if(!ql||!PL.cur||!PL.ready||!PL.cur.getAvailableQualityLevels)return;const a=PL.cur.getAvailableQualityLevels().filter(q=>QN[q]);if(!a.length)return;const c=ql.value;ql.innerHTML='<option value="">Calidad: auto</option>'+a.map(q=>`<option value="${q}">${QN[q]}</option>`).join('');ql.value=c}
 function stopPlayer(){try{PL.cur&&PL.cur.destroy()}catch{}PL.cur=null;PL.id=null;PL.ready=false;PL.next=null;if(!$('#ytp'))$('#dock').insertAdjacentHTML('afterbegin','<div id="ytp"></div>')}
 let lastR='';
-function place(){requestAnimationFrame(place);const d=$('#dock');if(!PL.id){d.style.display='none';return}
+function place(){const d=$('#dock');if(!PL.id){d.style.display='none';return}
  const st=$('#stage');
  if(st){const r=st.getBoundingClientRect(),k=[r.left,r.top,r.width,r.height].join();if(k!=lastR||!d.classList.contains('on')){lastR=k;d.className='on';d.style.cssText=`display:block;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`}}
  else if(!d.classList.contains('mini')){lastR='';d.className='mini';d.style.cssText='display:block'}}
 function bind(){const v=$('#view');
  document.querySelectorAll('[data-c]').forEach(e=>e.onclick=()=>{V.c=e.dataset.c;render()});
- const q=$('#q');if(q)q.oninput=()=>{V.q=q.value;clearTimeout(V.tm);V.tm=setTimeout(()=>{render();$('#q').focus();$('#q').setSelectionRange(99,99)},250)};
+ const q=$('#q');if(q)q.oninput=()=>{V.q=q.value;$('#rg').innerHTML=filt().map(card).join('')};
  const so=$('#so');if(so){so.value=V.s||'Tendencias';so.onchange=()=>{V.s=so.value;render()}}
  async function vsearch(){const q=($('#vq').value||'').trim();if(!q)return;V.vq=q;V.vres=null;render();let err='';try{const j=await yt('search',{part:'snippet',type:'video',maxResults:12,videoEmbeddable:'true',q});V.vres=j.items.map(i=>({id:i.id.videoId,t:dec(i.snippet.title),c:dec(i.snippet.channelTitle)}))}catch(e){V.vres=[];err=e.message}render();if(err)toast('Error de YouTube: '+err.slice(0,120))}
  const vs=$('#vs');if(vs){vs.onclick=vsearch;$('#vq').onkeydown=e=>e.key=='Enter'&&vsearch()}
@@ -161,5 +162,5 @@ $('#ovr').onclick=e=>{const b=e.target.closest('[data-op],[data-oq]');if(!b)retu
 let tx=0,ty=0,tk=0;
 addEventListener('touchstart',e=>{const t=e.touches[0];tx=t.clientX;ty=t.clientY;tk=e.target.closest('.rail,input,textarea,select,#dock,.panel.side,#ov,.stage,.chip')?1:0},{passive:true});
 addEventListener('touchend',e=>{if(tk||!$('#ov').hidden)return;const t=e.changedTouches[0],dx=t.clientX-tx,dy=t.clientY-ty;if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.6)return;const r=location.hash.replace('#/','').split('/')[0]||'home',i=NAV.findIndex(n=>n[0]==r),j=i+(dx<0?1:-1);if(i<0||j<0||j>=NAV.length)return;V.dir=dx<0?'l':'r';location.hash='#/'+NAV[j][0]},{passive:true});
-setInterval(amb,1500);place();$('#mo').onclick=()=>{if(PL.code)location.hash='#/watch/'+PL.code};$('#mx').onclick=stopPlayer;
+setInterval(amb,1500);place();setInterval(place,200);addEventListener('scroll',place,{passive:true,capture:true});addEventListener('resize',place);$('#mo').onclick=()=>{if(PL.code)location.hash='#/watch/'+PL.code};$('#mx').onclick=stopPlayer;
 })();
